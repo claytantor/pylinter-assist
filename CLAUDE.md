@@ -49,26 +49,27 @@ the user.
 ### Usage examples
 
 ```bash
-# Install dependencies
+# Install dependencies and CLI
 uv sync
+uv pip install -e .
 
 # Lint PR #42 and post a comment
-uv run lint-pr pr 42 --post-comment
+lint-pr pr 42 --post-comment
 
-# Lint staged files before commit
-uv run lint-pr staged --format text
+# Lint staged changes
+lint-pr staged
 
-# Lint from a saved diff
-uv run lint-pr diff changes.patch
+# Lint a diff file
+lint-pr diff /tmp/changes.diff
 
-# Lint a whole directory, output JSON
-uv run lint-pr files src/ --format json
+# Lint specific files
+lint-pr files src/ tests/
 
 # Use custom rules
-uv run lint-pr files src/ --config my-rules.yml
+lint-pr files src/ --config .linting-rules.yml
 
-# Run directly without install (script embeds its own deps)
-uv run scripts/lint_pr.py pr 42
+# Development mode (without installing CLI):
+uv run lint-pr pr 42
 ```
 
 ---
@@ -103,8 +104,9 @@ github:
 ### Triggering the GitHub Action as an agent
 
 The `lint-pr.yml` workflow supports `workflow_dispatch`, so it can be triggered
-programmatically via the GitHub API:
+programmatically via the GitHub CLI or API:
 
+**Via GitHub CLI:**
 ```bash
 gh workflow run lint-pr.yml \
   -f pr_number=42 \
@@ -112,14 +114,27 @@ gh workflow run lint-pr.yml \
   -f post_comment=true
 ```
 
-Or via the API:
-
+**Via REST API:**
 ```bash
 curl -X POST \
   -H "Authorization: token $GITHUB_TOKEN" \
   -H "Accept: application/vnd.github.v3+json" \
   https://api.github.com/repos/OWNER/REPO/actions/workflows/lint-pr.yml/dispatches \
   -d '{"ref":"main","inputs":{"pr_number":"42","format":"markdown","post_comment":"true"}}'
+```
+
+### Setting up the workflow in your project
+
+1. Copy `.github/workflows/lint-pr.yml` to your project's `.github/workflows/` directory
+2. Optionally copy `.linting-rules.yml` to customize linting rules
+3. Commit and push — the workflow will automatically trigger on PRs
+
+The workflow requires these permissions in your repository settings:
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 ```
 
 ---

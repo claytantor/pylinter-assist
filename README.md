@@ -4,6 +4,31 @@ Context-aware Python linting with smart pattern heuristics for PR review.
 
 A soft PR reviewer that combines Pylint with custom pattern checks to catch hardcoded secrets, missing FastAPI docstrings, and other issues traditional linters miss. Complements hard CI tests; branches are assignable by the user.
 
+## Quick Start
+
+```bash
+# Install dependencies
+uv sync
+
+# Install CLI for direct command usage
+uv pip install -e .
+
+# Lint your project
+lint-pr files src/ --format markdown
+```
+
+## GitHub Actions (Recommended for PRs)
+
+Automatically lint PRs by adding the workflow to your repository:
+
+```bash
+mkdir -p .github/workflows
+curl -o .github/workflows/lint-pr.yml \
+  https://raw.githubusercontent.com/claytantor/pylinter-assist/main/.github/workflows/lint-pr.yml
+```
+
+See [GitHub Actions Integration](#github-actions-integration) for full setup instructions.
+
 ## Features
 
 | Check | Code | Severity | Catches |
@@ -20,15 +45,27 @@ A soft PR reviewer that combines Pylint with custom pattern checks to catch hard
 
 ## Installation
 
+First, sync dependencies:
+
 ```bash
 uv sync
 ```
 
+Then install the CLI for direct command usage:
+
+```bash
+uv pip install -e .
+```
+
+After installation, `lint-pr` is available as a direct command.
+
 ## Usage
 
 ```bash
-uv run lint-pr [TARGET] [OPTIONS]
+lint-pr [TARGET] [OPTIONS]
 ```
+
+> **Note:** You can also use `uv run lint-pr` without installing the package (development mode).
 
 ### Targets
 
@@ -52,19 +89,19 @@ uv run lint-pr [TARGET] [OPTIONS]
 
 ```bash
 # Lint PR #42 and post a comment
-uv run lint-pr pr 42 --post-comment
+lint-pr pr 42 --post-comment
 
 # Lint staged files before commit
-uv run lint-pr staged --format text
+lint-pr staged
 
-# Lint from a saved diff
-uv run lint-pr diff changes.patch
+# Lint a diff file
+lint-pr diff /tmp/changes.diff
 
-# Lint a whole directory, output JSON
-uv run lint-pr files src/ --format json
+# Lint specific files
+lint-pr files src/ tests/
 
 # Use custom rules
-uv run lint-pr files src/ --config my-rules.yml
+lint-pr files src/ --config .linting-rules.yml
 ```
 
 ## Configuration
@@ -120,6 +157,87 @@ uv run ruff format .
 # Lint code
 uv run pylint pylinter_assist
 ```
+
+## GitHub Actions Integration
+
+Automatically lint PRs in your project using the provided GitHub Actions workflow.
+
+### Setup
+
+1. **Clone or download the workflow file**
+
+   Copy `.github/workflows/lint-pr.yml` to your project:
+
+   ```bash
+   mkdir -p .github/workflows
+   curl -o .github/workflows/lint-pr.yml \
+     https://raw.githubusercontent.com/claytantor/pylinter-assist/main/.github/workflows/lint-pr.yml
+   ```
+
+2. **Add configuration file** (optional)
+
+   Copy `.linting-rules.yml` to your project root and customize:
+
+   ```bash
+   curl -o .linting-rules.yml \
+     https://raw.githubusercontent.com/claytantor/pylinter-assist/main/.linting-rules.yml
+   ```
+
+3. **Commit and push**
+
+   The workflow will automatically trigger on PRs.
+
+### Workflow Triggers
+
+| Trigger | Description |
+|---------|-------------|
+| `pull_request` | Auto-lints all files changed in a PR |
+| `workflow_dispatch` | Manual trigger via GitHub UI or API |
+
+### Manual Trigger via GitHub UI
+
+1. Go to your repository's **Actions** tab
+2. Select **Pylint Assist** workflow
+3. Click **Run workflow**
+4. Choose branch and optional inputs:
+   - PR number (leave empty for current branch)
+   - Output format (markdown, text, json)
+   - Config path
+   - Post comment (true/false)
+
+### Manual Trigger via GitHub CLI
+
+```bash
+gh workflow run lint-pr.yml \
+  -f pr_number=42 \
+  -f format=markdown \
+  -f post_comment=true
+```
+
+### Manual Trigger via API
+
+```bash
+curl -X POST \
+  -H "Authorization: token $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/OWNER/REPO/actions/workflows/lint-pr.yml/dispatches \
+  -d '{"ref":"main","inputs":{"pr_number":"42","format":"markdown","post_comment":"true"}}'
+```
+
+### Workflow Permissions
+
+The workflow requires these permissions:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+```
+
+### Output Artifacts
+
+Every run generates a `lint-report.json` artifact available for 14 days.
 
 ## License
 
