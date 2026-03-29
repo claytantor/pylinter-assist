@@ -1,0 +1,51 @@
+# .linting-rules.yml
+# pylinter-assist configuration — copy to your project root and customize.
+
+# ---------------------------------------------------------------------------
+# Pylint settings
+# ---------------------------------------------------------------------------
+pylint:
+  enabled: true
+  min_score: 7.0           # Informational threshold (not enforced by default)
+  max_line_length: 120
+  disable:
+    - C0114               # Missing module docstring
+    - C0115               # Missing class docstring
+    - R0903               # Too few public methods
+  enable: []
+
+# ---------------------------------------------------------------------------
+# Hardcoded secrets / URLs / IPs
+# ---------------------------------------------------------------------------
+hardcoded_secrets:
+  enabled: true
+  skip_ip_check: false     # Set true to disable IP address detection
+
+# ---------------------------------------------------------------------------
+# FastAPI route handler docstrings
+# ---------------------------------------------------------------------------
+fastapi_docstring:
+  enabled: true
+  severity: warning        # error | warning | info
+
+# ---------------------------------------------------------------------------
+# React useEffect dependency arrays
+# ---------------------------------------------------------------------------
+react_useeffect_deps:
+  enabled: true
+  severity: warning        # error | warning | info
+
+# ---------------------------------------------------------------------------
+# Output settings
+# ---------------------------------------------------------------------------
+output:
+  format: markdown         # text | json | markdown
+  include_info: true       # Include INFO-level findings in output
+
+# ---------------------------------------------------------------------------
+# GitHub integration
+# ---------------------------------------------------------------------------
+github:
+  post_comment: true       # Auto-post Markdown report as PR comment
+  fail_on_error: true      # Exit code 1 if any ERROR findings
+  fail_on_warning: false   # Exit code 1 if any WARNING findings

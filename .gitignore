@@ -1,0 +1,51 @@
+# ClawdHub install metadata (created on install, not part of skill)
+.clawdhub/
+.clawhub/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.egg-info/
+dist/
+build/
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# uv
+# uv.lock is intentionally committed
+
+# Lint output
+lint-report.json
+*.patch
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Private keys and secrets
+*.pem
+*.key
+secrets.json
+*.secret
+
+.git/

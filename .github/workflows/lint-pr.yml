@@ -1,0 +1,139 @@
+name: Pylint Assist
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  # Allow agent/user to trigger manually against any PR or branch
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull Request number to lint (leave empty to lint current branch)"
+        required: false
+        type: string
+      format:
+        description: "Output format"
+        required: false
+        default: "markdown"
+        type: choice
+        options:
+          - markdown
+          - text
+          - json
+      config_path:
+        description: "Path to .linting-rules.yml (default: repo root)"
+        required: false
+        type: string
+      post_comment:
+        description: "Post results as a PR comment"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  lint:
+    name: Run Pylint Assist
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      # -----------------------------------------------------------------------
+      # PR trigger: lint changed files in the PR
+      # -----------------------------------------------------------------------
+      - name: Lint pull request (PR trigger)
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          uv run lint-pr pr ${{ github.event.pull_request.number }} \
+            --format markdown \
+            --post-comment \
+            --no-fail-on-warning || true
+
+      # -----------------------------------------------------------------------
+      # Manual dispatch: use pr_number if provided, else lint whole branch
+      # -----------------------------------------------------------------------
+      - name: Lint pull request (manual dispatch with PR number)
+        if: github.event_name == 'workflow_dispatch' && inputs.pr_number != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          EXTRA_ARGS=""
+          if [ "${{ inputs.post_comment }}" = "true" ]; then
+            EXTRA_ARGS="--post-comment"
+          else
+            EXTRA_ARGS="--no-post-comment"
+          fi
+          if [ -n "${{ inputs.config_path }}" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS --config ${{ inputs.config_path }}"
+          fi
+          uv run lint-pr pr ${{ inputs.pr_number }} \
+            --format ${{ inputs.format }} \
+            $EXTRA_ARGS || true
+
+      - name: Lint current branch files (manual dispatch, no PR)
+        if: github.event_name == 'workflow_dispatch' && inputs.pr_number == ''
+        run: |
+          EXTRA_ARGS=""
+          if [ -n "${{ inputs.config_path }}" ]; then
+            EXTRA_ARGS="--config ${{ inputs.config_path }}"
+          fi
+          uv run lint-pr files . \
+            --format ${{ inputs.format }} \
+            $EXTRA_ARGS || true
+
+      # -----------------------------------------------------------------------
+      # Upload JSON report as artifact on every run
+      # -----------------------------------------------------------------------
+      - name: Generate JSON report artifact
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          PR="${{ github.event.pull_request.number || inputs.pr_number }}"
+          if [ -n "$PR" ]; then
+            uv run lint-pr pr "$PR" \
+              --format json \
+              --no-post-comment \
+              > lint-report.json 2>/dev/null || echo '{"summary":{},"results":[],"errors":[]}' > lint-report.json
+          else
+            uv run lint-pr files . \
+              --format json \
+              > lint-report.json 2>/dev/null || echo '{"summary":{},"results":[],"errors":[]}' > lint-report.json
+          fi
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: lint-report.json
+          retention-days: 14
