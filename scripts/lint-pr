@@ -1,0 +1,33 @@
+#!/bin/bash
+###############################################################################
+# lint-pr wrapper script
+#
+# This script provides a direct CLI entry point for the pylinter-assist skill.
+# It ensures proper PATH setup and invokes the Python module correctly.
+#
+# Usage:
+#   lint-pr [TARGET] [OPTIONS]
+#
+# Examples:
+#   lint-pr pr 42 --post-comment
+#   lint-pr staged
+#   lint-pr files src/ tests/
+###############################################################################
+
+set -e
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Ensure we're using Python from the project environment if available
+if [ -f "$PROJECT_ROOT/.venv/bin/python" ]; then
+    PYTHON="$PROJECT_ROOT/.venv/bin/python"
+elif command -v python3 &> /dev/null; then
+    PYTHON="python3"
+else
+    PYTHON="python"
+fi
+
+# Execute the CLI module
+exec "$PYTHON" -m pylinter_assist.cli "$@"

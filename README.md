@@ -45,6 +45,8 @@ See [GitHub Actions Integration](#github-actions-integration) for full setup ins
 
 ## Installation
 
+### Option A: Install via pip (recommended for CLI access)
+
 First, sync dependencies:
 
 ```bash
@@ -59,13 +61,30 @@ uv pip install -e .
 
 After installation, `lint-pr` is available as a direct command.
 
+### Option B: Use uv scripts (no installation required)
+
+```bash
+uv sync
+uv lint-pr [TARGET] [OPTIONS]
+```
+
+### Option C: Run via wrapper script
+
+```bash
+uv sync
+./scripts/lint-pr [TARGET] [OPTIONS]
+```
+
 ## Usage
 
 ```bash
 lint-pr [TARGET] [OPTIONS]
 ```
 
-> **Note:** You can also use `uv run lint-pr` without installing the package (development mode).
+> **Note:** All three installation options provide the same `lint-pr` command. Choose based on your needs:
+> - Option A: Best for production use, CLI available system-wide
+> - Option B: Best for development, no installation needed
+> - Option C: Best when working directly from source
 
 ### Targets
 
