@@ -48,19 +48,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-          enable-cache: true
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version-file: ".python-version"
 
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: pip install -e .[dev]
 
       # -----------------------------------------------------------------------
       # PR trigger: lint changed files in the PR
@@ -70,8 +64,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          uv run lint-pr pr ${{ github.event.pull_request.number }} \
+          lint-pr pr "$EVENT_PR_NUMBER" \
             --format markdown \
             --post-comment \
             --no-fail-on-warning || true
@@ -84,56 +79,99 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          # Use env vars — never interpolate inputs directly into shell commands
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          INPUT_FORMAT: ${{ inputs.format }}
+          INPUT_POST_COMMENT: ${{ inputs.post_comment }}
+          INPUT_CONFIG_PATH: ${{ inputs.config_path }}
         run: |
-          EXTRA_ARGS=""
-          if [ "${{ inputs.post_comment }}" = "true" ]; then
-            EXTRA_ARGS="--post-comment"
+          if [ "$INPUT_POST_COMMENT" = "true" ]; then
+            COMMENT_FLAG="--post-comment"
           else
-            EXTRA_ARGS="--no-post-comment"
+            COMMENT_FLAG="--no-post-comment"
           fi
-          if [ -n "${{ inputs.config_path }}" ]; then
-            EXTRA_ARGS="$EXTRA_ARGS --config ${{ inputs.config_path }}"
+          if [ -n "$INPUT_CONFIG_PATH" ]; then
+            lint-pr pr "$INPUT_PR_NUMBER" \
+              --format "$INPUT_FORMAT" \
+              "$COMMENT_FLAG" \
+              --config "$INPUT_CONFIG_PATH" || true
+          else
+            lint-pr pr "$INPUT_PR_NUMBER" \
+              --format "$INPUT_FORMAT" \
+              "$COMMENT_FLAG" || true
           fi
-          uv run lint-pr pr ${{ inputs.pr_number }} \
-            --format ${{ inputs.format }} \
-            $EXTRA_ARGS || true
 
       - name: Lint current branch files (manual dispatch, no PR)
         if: github.event_name == 'workflow_dispatch' && inputs.pr_number == ''
+        env:
+          INPUT_FORMAT: ${{ inputs.format }}
+          INPUT_CONFIG_PATH: ${{ inputs.config_path }}
         run: |
-          EXTRA_ARGS=""
-          if [ -n "${{ inputs.config_path }}" ]; then
-            EXTRA_ARGS="--config ${{ inputs.config_path }}"
+          if [ -n "$INPUT_CONFIG_PATH" ]; then
+            lint-pr files . \
+              --format "$INPUT_FORMAT" \
+              --config "$INPUT_CONFIG_PATH" || true
+          else
+            lint-pr files . \
+              --format "$INPUT_FORMAT" || true
           fi
-          uv run lint-pr files . \
-            --format ${{ inputs.format }} \
-            $EXTRA_ARGS || true
 
       # -----------------------------------------------------------------------
-      # Upload JSON report as artifact on every run
+      # Generate and upload reports as artifacts
       # -----------------------------------------------------------------------
-      - name: Generate JSON report artifact
+      - name: Generate JSON report
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
         run: |
-          PR="${{ github.event.pull_request.number || inputs.pr_number }}"
+          PR="${EVENT_PR_NUMBER:-$INPUT_PR_NUMBER}"
           if [ -n "$PR" ]; then
-            uv run lint-pr pr "$PR" \
+            lint-pr pr "$PR" \
               --format json \
               --no-post-comment \
               > lint-report.json 2>/dev/null || echo '{"summary":{},"results":[],"errors":[]}' > lint-report.json
           else
-            uv run lint-pr files . \
+            lint-pr files . \
               --format json \
               > lint-report.json 2>/dev/null || echo '{"summary":{},"results":[],"errors":[]}' > lint-report.json
           fi
 
-      - name: Upload lint report
+      - name: Generate Markdown report
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          PR="${EVENT_PR_NUMBER:-$INPUT_PR_NUMBER}"
+          if [ -n "$PR" ]; then
+            lint-pr pr "$PR" \
+              --format markdown \
+              --no-post-comment \
+              > lint-report.md 2>/dev/null || echo "# Lint Report\n\nNo results available." > lint-report.md
+          else
+            lint-pr files . \
+              --format markdown \
+              --no-post-comment \
+              > lint-report.md 2>/dev/null || echo "# Lint Report\n\nNo results available." > lint-report.md
+          fi
+
+      - name: Upload JSON lint report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lint-report
+          name: lint-report-json
           path: lint-report.json
+          retention-days: 14
+
+      - name: Upload Markdown lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report-markdown
+          path: lint-report.md
           retention-days: 14

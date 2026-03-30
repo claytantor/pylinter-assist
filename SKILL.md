@@ -1,36 +1,35 @@
 # pylinter-assist — OpenClaw Skill
 
 name: pylinter-assist
-version: 0.4.0+0+0
+version: 0.6.3
 
 ## Prerequisites
 
 Before installing this skill, ensure you have the following installed:
 
-### uv (Python package manager)
+### Python (via pyenv or system package manager)
 
-[Install via official script](https://astral.sh/uv/install.sh):
+This project uses standard **pyenv + pip + venv** — no remote install scripts required.
 
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-**Important:** After installation, add uv to your PATH if not already present:
+**Install pyenv (no `curl | sh`):**
 
 ```bash
-# Add to your shell config (bash/zsh/fish)
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc  # or ~/.zshrc
-source ~/.bashrc  # or source ~/.zshrc
+# macOS
+brew install pyenv
 
-# Verify installation
-which uv
-uv --version
+# Linux — auditable git clone (can be pinned to a specific commit)
+git clone https://github.com/pyenv/pyenv.git ~/.pyenv
+# Then follow https://github.com/pyenv/pyenv#set-up-your-shell-environment
 ```
 
-If `uv` is not found, check that `~/.local/bin` is in your PATH:
+**Install Python 3.11 and activate:**
+
 ```bash
-echo $PATH | grep -o '.*/.local/bin'
+pyenv install 3.11    # reads .python-version automatically if present
+pyenv local 3.11      # creates .python-version in the project root
 ```
+
+Alternatively, use any system Python 3.11+ (`python3 --version`) — pyenv is optional if you already have a suitable Python.
 
 ### npm (Node.js package manager, for ClawHub CLI)
 
@@ -73,59 +72,70 @@ The skill will be installed to `~/.openclaw/workspace/skills/pylinter-assist`.
 
 ### Step 0: Post-Installation Setup
 
-After the skill is installed as a snapshot, run this to register the CLI in your PATH:
+After the skill is installed as a snapshot, create a venv and install the CLI:
 
 ```bash
 cd ~/.openclaw/workspace/skills/pylinter-assist
-uv sync
-python -m venv .venv-lint
-source .venv-lint/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 pip install -e .
 ```
 
-This creates an isolated virtual environment and registers the `lint-pr` command.
-
+This registers the `lint-pr` command for the duration of your shell session.
 Deactivate when done: `deactivate`
 
 ### Step 1: Use the CLI
 
-Choose one of these methods:
-
-**Method A: Install via pip in standard venv (recommended)**
 ```bash
-uv sync
-python -m venv .venv-lint
-source .venv-lint/bin/activate
+# Create and activate the virtual environment
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+# Install the package and its dependencies
 pip install -e .
+
+# Run the linter
 lint-pr pr 42 --post-comment
 ```
 
-**Method B: Use uv run (no installation required)**
+Or run the wrapper script directly (no venv activation needed if dependencies are installed):
 ```bash
-uv sync
-uv run lint-pr pr 42 --post-comment
-```
-
-**Method C: Run wrapper script directly**
-```bash
-uv sync
-uv run python scripts/lint_pr.py pr 42 --post-comment
+python scripts/lint_pr.py pr 42 --post-comment
 ```
 
 ### Step 2: Add GitHub Actions Workflow
 
-Copy the workflow file to your project:
+> **Security warning:** GitHub Actions workflows run with your repository's permissions
+> and can read secrets. Only commit a workflow file whose full contents you have read
+> and understood. Never copy a file from a URL without inspecting it first.
+
+**Recommended — copy from a local clone** (you can `git log` and `git show` the file
+before copying; no network fetch at commit time):
 
 ```bash
+git clone https://github.com/claytantor/pylinter-assist.git /tmp/pylinter-assist
+# Review the workflow source before copying
+cat /tmp/pylinter-assist/.github/workflows/lint-pr.yml
+
 mkdir -p .github/workflows
-cp /path/to/pylinter-assist/.github/workflows/lint-pr.yml .github/workflows/
+cp /tmp/pylinter-assist/.github/workflows/lint-pr.yml .github/workflows/
 ```
 
-Or download directly:
+**Last resort — direct download.** Pin to a specific commit SHA, not `main`, so the
+file cannot change under you. Replace `<COMMIT_SHA>` with the exact commit you reviewed
+on GitHub:
 
 ```bash
+# Find the commit SHA: https://github.com/claytantor/pylinter-assist/commits/main
+COMMIT_SHA=<COMMIT_SHA>
+
+mkdir -p .github/workflows
 curl -o .github/workflows/lint-pr.yml \
-  https://raw.githubusercontent.com/claytantor/pylinter-assist/main/.github/workflows/lint-pr.yml
+  "https://raw.githubusercontent.com/claytantor/pylinter-assist/${COMMIT_SHA}/.github/workflows/lint-pr.yml"
+
+# Verify the download — compare against what you saw on GitHub
+cat .github/workflows/lint-pr.yml
+sha256sum .github/workflows/lint-pr.yml   # record this for future reference
 ```
 
 ### Step 3: Add Configuration (Optional)
@@ -151,26 +161,54 @@ permissions:
 
 The workflow will automatically trigger on new PRs.
 
+## Enabling a New Project for Support
+
+> **Security warning:** The workflow file you are about to commit runs with your
+> repository's permissions and can access secrets. Read every line of the file before
+> committing. Do not use `curl … | sh` or copy files from a branch tip (`main`) without
+> pinning to a reviewed commit.
+
+**Recommended approach — clone, review, then copy:**
+
+```bash
+# 1. Clone the skill repo to a temporary location
+git clone https://github.com/claytantor/pylinter-assist.git /tmp/pylinter-assist
+
+# 2. Review the files you are about to add to your repo
+cat /tmp/pylinter-assist/.github/workflows/lint-pr.yml
+cat /tmp/pylinter-assist/.linting-rules.yml
+
+# 3. Switch to your project and copy the reviewed files
+cd <your-project-root>
+git checkout dev
+git pull origin dev
+
+mkdir -p .github/workflows
+cp /tmp/pylinter-assist/.github/workflows/lint-pr.yml .github/workflows/
+cp /tmp/pylinter-assist/.linting-rules.yml .linting-rules.yml
+
+# 4. Commit only after you are satisfied with the contents
+git add .github/workflows/lint-pr.yml .linting-rules.yml
+git commit -m "ci: add pylinter-assist workflow for PRs targeting dev"
+git push origin dev
+```
+
+The workflow requires these permissions in your repository settings:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+```
+
 ## Usage
 
-### Direct CLI Commands
-
-After installation (Method A), run:
-
 ```bash
+# Activate venv first
+source .venv/bin/activate
+
 lint-pr [TARGET] [OPTIONS]
-```
-
-Or use uv run (Method B):
-
-```bash
-uv run lint-pr [TARGET] [OPTIONS]
-```
-
-Or use wrapper script (Method C):
-
-```bash
-uv run python scripts/lint_pr.py [TARGET] [OPTIONS]
 ```
 
 ### Targets
@@ -185,8 +223,8 @@ uv run python scripts/lint_pr.py [TARGET] [OPTIONS]
 ### Examples
 
 ```bash
-# Activate venv first (Method A only)
-source .venv-lint/bin/activate
+# Activate venv
+source .venv/bin/activate
 
 # Lint PR #42 and post comment
 lint-pr pr 42 --post-comment
@@ -199,9 +237,6 @@ lint-pr diff /tmp/changes.diff
 
 # Lint specific files
 lint-pr files src/ tests/
-
-# Or use uv run (no venv activation needed)
-uv run lint-pr pr 42 --post-comment
 ```
 
 ### Options
@@ -259,12 +294,16 @@ github:
 
 ## Manual Trigger Examples
 
-**GitHub CLI:**
+**GitHub CLI (preferred — token is handled by `gh auth`, not exposed in shell):**
 ```bash
 gh workflow run lint-pr.yml -f pr_number=42 -f format=markdown -f post_comment=true
 ```
 
 **REST API:**
+> **Security note:** The token passed via `-H "Authorization: token $GITHUB_TOKEN"` must
+> be a Personal Access Token or a fine-grained token scoped to `actions:write`. Never
+> hard-code the token value in scripts; always expand it from an environment variable.
+
 ```bash
 curl -X POST \
   -H "Authorization: token $GITHUB_TOKEN" \
@@ -280,45 +319,129 @@ curl -X POST \
 
 ## Troubleshooting
 
-### `command not found: uv`
-
-If you get "command not found: uv" after installation:
-
-```bash
-# Check if uv is installed
-ls -la ~/.local/bin/uv
-
-# Add to PATH if missing
-export PATH="$HOME/.local/bin:$PATH"
-
-# Make it permanent
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
 ### `command not found: lint-pr` after installation
 
-The `lint-pr` CLI is installed to the virtual environment's bin directory:
+The `lint-pr` CLI is installed inside the virtual environment. Either activate it or call it directly:
 
 ```bash
-# Check if it exists
-ls -la .venv-lint/bin/lint-pr
+# Activate the venv
+source .venv/bin/activate
 
-# Either activate the venv
-source .venv-lint/bin/activate
-
-# Or call it directly
-./.venv-lint/bin/lint-pr pr 42
+# Or call it directly without activation
+./.venv/bin/lint-pr pr 42
 ```
 
-### uv sync fails with "no Python found"
+### `python3: command not found` or wrong Python version
 
-Ensure Python is installed:
+Ensure Python 3.11+ is installed and on your PATH:
 
 ```bash
 python3 --version
 
-# If using pyenv or similar, ensure Python is available
-pyenv versions
+# If using pyenv, install the required version
+pyenv install    # reads .python-version automatically
+pyenv versions   # list installed versions
+```
+
+### `pip install -e .` fails
+
+Ensure the venv is activated before installing:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
+## GitHub Actions Monitoring
+
+The skill can automatically monitor GitHub Actions workflow runs and notify you when lint results are ready.
+
+### Monitor a Repository
+
+Use the `monitor` command to watch for completed workflow runs:
+
+```bash
+# Basic monitoring - download report only
+lint-pr monitor owner/repo --token $GITHUB_TOKEN
+
+# Monitor with timeout and custom polling interval
+lint-pr monitor owner/repo --token $GITHUB_TOKEN --timeout 3600 --poll-interval 60
+```
+
+> **Security note:** Avoid passing secrets (bot tokens, webhook URLs) directly as
+> `--callback` command-line arguments — they are visible in process listings (`ps aux`).
+> Prefer setting notification credentials in `.linting-rules.yml` with values read from
+> environment variables, or ensure your shell history is protected before using the
+> `--callback` flag.
+
+```bash
+# Monitor with Telegram notification (tokens visible in process list — use with caution)
+lint-pr monitor owner/repo --token $GITHUB_TOKEN \
+  --callback telegram:$TELEGRAM_BOT_TOKEN:$TELEGRAM_CHAT_ID
+
+# Monitor with Discord notification
+lint-pr monitor owner/repo --token $GITHUB_TOKEN \
+  --callback discord:$DISCORD_WEBHOOK_URL
+
+# Monitor with multiple channels
+lint-pr monitor owner/repo --token $GITHUB_TOKEN \
+  --callback telegram:$TELEGRAM_BOT_TOKEN:$TELEGRAM_CHAT_ID \
+  --callback discord:$DISCORD_WEBHOOK_URL
+```
+
+### Configuration
+
+Enable notifications in `.linting-rules.yml`:
+
+```yaml
+notifications:
+  enabled: true
+  channels:
+    - type: telegram
+      bot_token: $TELEGRAM_BOT_TOKEN
+      chat_id: 123456789
+    - type: discord
+      webhook_url: https://discord.com/api/webhooks/...
+      username: "Lint Bot"
+    - type: slack
+      webhook_url: https://hooks.slack.com/services/...
+```
+
+### Monitoring Configuration
+
+```yaml
+github_actions:
+  polling_interval: 30    # Seconds between status checks
+  max_timeout: 1800       # Max seconds to wait (30 minutes)
+  retry_attempts: 3       # Retry failed API calls
+```
+
+### Supported Notification Channels
+
+| Channel | Setup |
+|---------|-------|
+| Telegram | Create bot via @BotFather, get chat_id from bot |
+| Discord | Create webhook in channel settings |
+| Slack | Create incoming webhook in apps |
+| Email | Configure SMTP server credentials |
+
+### Error Handling
+
+The monitoring system handles:
+- **API rate limiting** (429): Exponential backoff with `Retry-After` header
+- **Missing artifacts**: Retry 3x with 10s delay, then fail gracefully
+- **Network timeouts**: Retry up to 3 attempts with increasing timeout
+- **Invalid tokens**: Clear error message with validation hint
+
+### Workflow Integration
+
+When enabled in a repository, the workflow automatically:
+1. Runs lint on PRs or manual trigger
+2. Uploads `lint-report.json` as artifact
+3. Can be monitored externally via the `monitor` command
+4. Sends notifications when results are ready
+
+See [Enabling a New Project for Support](#enabling-a-new-project-for-support) to set up monitoring in your repository.
 ```
 

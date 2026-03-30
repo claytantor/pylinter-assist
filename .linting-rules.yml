@@ -49,3 +49,31 @@ github:
   post_comment: true       # Auto-post Markdown report as PR comment
   fail_on_error: true      # Exit code 1 if any ERROR findings
   fail_on_warning: false   # Exit code 1 if any WARNING findings
+
+# ---------------------------------------------------------------------------
+# GitHub Actions monitoring
+# ---------------------------------------------------------------------------
+github_actions:
+  polling_interval: 30     # Seconds between status checks
+  max_timeout: 1800        # Max seconds to wait for workflow completion
+  retry_attempts: 3
+
+# ---------------------------------------------------------------------------
+# Notification channels
+# ---------------------------------------------------------------------------
+notifications:
+  enabled: false           # Set true to enable notifications on lint completion
+  channels:
+    # Telegram example (uncomment and configure):
+    # - type: telegram
+    #   bot_token: $TELEGRAM_BOT_TOKEN
+    #   chat_id: 123456789
+    #
+    # Discord webhook example (uncomment and configure):
+    # - type: discord
+    #   webhook_url: https://discord.com/api/webhooks/...
+    #   username: "Lint Bot"
+    #
+    # Slack webhook example (uncomment and configure):
+    # - type: slack
+    #   webhook_url: https://hooks.slack.com/services/...

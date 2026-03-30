@@ -21,8 +21,8 @@ env/
 .env
 .env.*
 
-# uv
-# uv.lock is intentionally committed
+# uv (no longer used — project uses pyenv + pip + venv)
+uv.lock
 
 # Lint output
 lint-report.json
